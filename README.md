@@ -80,19 +80,22 @@ Detailed view: full process tree, repository path, current git branch, memory us
 ### Kill a process on a port
 
 ```bash
-ports kill 3000
+ports kill
 ```
 
-Immediately kills whatever is listening on port 3000 — no confirmation prompt. Shows what it killed:
+Interactive mode — shows a multi-select list of active dev ports. Pick which to kill with arrow keys and space, confirm with enter:
 
 ```
-  Killing node (PID 42872) on :3000 [Next.js — frontend]
-  ✓ Killed PID 42872
+? Select ports to kill:
+◯ :3000 — node [Next.js — frontend]
+◯ :5173 — node [Vite — dashboard]
+◯ :5432 — docker [PostgreSQL — backend-postgres-1]
 ```
 
-Kill multiple ports at once:
+Or kill directly by port number (no prompt):
 
 ```bash
+ports kill 3000
 ports kill 3000 5173 8080
 ```
 

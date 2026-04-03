@@ -16,12 +16,13 @@ node src/index.js ps          # List all dev processes
 node src/index.js clean       # Find and kill orphaned processes
 node src/index.js watch       # Real-time port monitoring
 node src/index.js --all       # Show all ports (not just dev)
+node src/index.js kill        # Interactive kill (multi-select from active ports)
 node src/index.js kill 3000   # Kill process on port 3000 (no prompt)
 node src/index.js kill 3000 5173  # Kill multiple ports
 npm test                      # Run tests (vitest)
 ```
 
-No test suite, no linter, no build step configured.
+No linter or build step configured.
 
 ## Architecture
 
@@ -39,4 +40,4 @@ Data flow: `index.js` calls `scanner.js` to collect data → passes results to `
 - **No argument parsing library** — commands and flags are parsed manually in `index.js`.
 - **Batch system calls** — scanner runs `ps` and `lsof` once and filters in JS rather than making per-port calls.
 - **Two npm bin aliases** — both `ports` and `whoisonport` point to the same entry point.
-- **Only 2 runtime deps** — `chalk` for colors, `cli-table3` for table formatting.
+- **Only 3 runtime deps** — `chalk` for colors, `cli-table3` for table formatting, `@inquirer/prompts` for interactive selection.
