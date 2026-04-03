@@ -28,7 +28,7 @@ No linter or build step configured.
 
 Three modules in `src/`, all ES modules:
 
-- **`index.js`** — CLI entry point and command router. Parses args manually (no library). Uses `readline` for interactive kill prompts.
+- **`index.js`** — CLI entry point and command router. Parses args manually (no library). Uses `@inquirer/prompts` for interactive port selection and `readline` for simple y/N prompts.
 - **`scanner.js`** — Core engine. Runs `lsof`, `ps`, and `docker ps` as batched shell calls for performance (~0.2s). Exports: `getListeningPorts()`, `getAllProcesses()`, `getPortDetails()`, `findOrphanedProcesses()`, `killProcess()`, `watchPorts()`. Contains framework detection logic for 30+ frameworks and dev-process filtering heuristics.
 - **`display.js`** — Rendering layer. Color-coded tables via `chalk` + `cli-table3` with framework-specific color schemes. Exports: `displayPortTable()`, `displayProcessTable()`, `displayPortDetail()`, `displayCleanResults()`, `displayWatchEvent()`.
 
