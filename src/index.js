@@ -20,6 +20,7 @@ import {
 import chalk from "chalk";
 import { createInterface } from "readline";
 import { fileURLToPath } from "url";
+import { checkbox } from "@inquirer/prompts";
 
 const args = process.argv.slice(2);
 const showAll = args.includes("--all") || args.includes("-a");
@@ -77,6 +78,46 @@ export async function handleKill(portArgs) {
 
   console.log();
   return anyFailed ? 1 : 0;
+}
+
+/**
+ * Interactive port selection and kill.
+ * Shows a checkbox prompt of active dev ports. Returns exit code.
+ */
+export async function interactiveKill() {
+  const ports = getListeningPorts().filter((p) =>
+    isDevProcess(p.processName, p.command),
+  );
+
+  if (ports.length === 0) {
+    console.log(chalk.gray("\n  No active dev ports found.\n"));
+    return 0;
+  }
+
+  const choices = ports.map((p) => {
+    const label = [p.framework, p.projectName].filter(Boolean).join(" — ");
+    const detail = label ? ` [${label}]` : "";
+    return {
+      name: `:${p.port} — ${p.processName}${detail}`,
+      value: p.port,
+    };
+  });
+
+  let selected;
+  try {
+    selected = await checkbox({
+      message: "Select ports to kill:",
+      choices,
+    });
+  } catch {
+    return 0;
+  }
+
+  if (selected.length === 0) {
+    return 0;
+  }
+
+  return handleKill(selected);
 }
 
 async function main() {
@@ -244,7 +285,11 @@ async function main() {
     }
 
     case "kill": {
-      const exitCode = await handleKill(filteredArgs.slice(1));
+      const killArgs = filteredArgs.slice(1);
+      const exitCode =
+        killArgs.length === 0
+          ? await interactiveKill()
+          : await handleKill(killArgs);
       process.exitCode = exitCode;
       break;
     }
@@ -272,7 +317,7 @@ async function main() {
         `    ${chalk.cyan("ports <number>")}     Detailed info about a specific port`,
       );
       console.log(
-        `    ${chalk.cyan("ports kill <port>")}  Kill process on a port (no prompt)`,
+        `    ${chalk.cyan("ports kill [port]")}  Kill ports (interactive if no port given)`,
       );
       console.log(
         `    ${chalk.cyan("ports clean")}        Kill orphaned/zombie dev servers`,
