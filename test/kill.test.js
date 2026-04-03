@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock scanner.js before importing handleKill
 vi.mock("../src/scanner.js", () => ({
@@ -28,6 +28,10 @@ describe("handleKill", () => {
     vi.spyOn(console, "log").mockImplementation((...args) =>
       output.push(args.join(" ")),
     );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("kills a single port successfully", async () => {

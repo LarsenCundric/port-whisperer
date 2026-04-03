@@ -19,6 +19,7 @@ import {
 } from "./display.js";
 import chalk from "chalk";
 import { createInterface } from "readline";
+import { fileURLToPath } from "url";
 
 const args = process.argv.slice(2);
 const showAll = args.includes("--all") || args.includes("-a");
@@ -296,9 +297,7 @@ async function main() {
 }
 
 // Only run main when executed directly (not imported in tests)
-const isMainModule =
-  process.argv[1] &&
-  import.meta.url.endsWith(process.argv[1].replace(/.*\//, ""));
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMainModule) {
   main().catch((err) => {
     console.error(chalk.red(`\n  Error: ${err.message}\n`));
