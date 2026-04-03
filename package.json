@@ -1,0 +1,40 @@
+{
+  "name": "port-whisperer",
+  "version": "1.0.0",
+  "description": "A beautiful CLI tool to see what's running on your ports -- framework detection, process info, and interactive management",
+  "type": "module",
+  "keywords": [
+    "cli",
+    "port",
+    "ports",
+    "process",
+    "dev-server",
+    "lsof",
+    "developer-tools",
+    "terminal",
+    "framework-detection"
+  ],
+  "author": "Larsen Cundric",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/larsencundric/port-whisperer.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "src/"
+  ],
+  "bin": {
+    "ports": "./src/index.js",
+    "whoisonport": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "cli-table3": "^0.6.5"
+  }
+}
