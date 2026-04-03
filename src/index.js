@@ -117,7 +117,7 @@ export async function interactiveKill() {
     return 0;
   }
 
-  return handleKill(selected);
+  return handleKill(selected.map(String));
 }
 
 async function main() {
