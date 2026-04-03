@@ -77,6 +77,25 @@ whoisonport 3000
 
 Detailed view: full process tree, repository path, current git branch, memory usage, and an interactive prompt to kill the process.
 
+### Kill a process on a port
+
+```bash
+ports kill 3000
+```
+
+Immediately kills whatever is listening on port 3000 — no confirmation prompt. Shows what it killed:
+
+```
+  Killing node (PID 42872) on :3000 [Next.js — frontend]
+  ✓ Killed PID 42872
+```
+
+Kill multiple ports at once:
+
+```bash
+ports kill 3000 5173 8080
+```
+
 ### Show all dev processes
 
 ```bash
