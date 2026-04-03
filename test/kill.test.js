@@ -4,6 +4,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("../src/scanner.js", () => ({
   getPortDetails: vi.fn(),
   killProcess: vi.fn(),
+  getListeningPorts: vi.fn(),
+  isDevProcess: vi.fn(),
+}));
+
+vi.mock("@inquirer/prompts", () => ({
+  checkbox: vi.fn(),
 }));
 
 // Mock chalk to get plain text output for assertions
@@ -16,8 +22,9 @@ vi.mock("chalk", () => {
   return { default: chain };
 });
 
-import { getPortDetails, killProcess } from "../src/scanner.js";
-import { handleKill } from "../src/index.js";
+import { getPortDetails, killProcess, getListeningPorts, isDevProcess } from "../src/scanner.js";
+import { checkbox } from "@inquirer/prompts";
+import { handleKill, interactiveKill } from "../src/index.js";
 
 describe("handleKill", () => {
   let output;
@@ -117,5 +124,75 @@ describe("handleKill", () => {
 
     expect(code).toBe(1);
     expect(output.some((line) => line.includes("not a valid port"))).toBe(true);
+  });
+});
+
+describe("interactiveKill", () => {
+  let output;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    output = [];
+    vi.spyOn(console, "log").mockImplementation((...args) =>
+      output.push(args.join(" ")),
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("shows checkbox and kills selected ports", async () => {
+    getListeningPorts.mockReturnValue([
+      { port: 3000, pid: 111, processName: "node", framework: "Next.js", projectName: "frontend", command: "node server.js" },
+      { port: 5173, pid: 222, processName: "node", framework: "Vite", projectName: "dashboard", command: "node vite.js" },
+    ]);
+    isDevProcess.mockReturnValue(true);
+    checkbox.mockResolvedValue([3000, 5173]);
+    getPortDetails.mockReturnValueOnce({ pid: 111, port: 3000, processName: "node", framework: "Next.js", projectName: "frontend" })
+      .mockReturnValueOnce({ pid: 222, port: 5173, processName: "node", framework: "Vite", projectName: "dashboard" });
+    killProcess.mockReturnValue(true);
+
+    const code = await interactiveKill();
+
+    expect(checkbox).toHaveBeenCalledTimes(1);
+    expect(killProcess).toHaveBeenCalledTimes(2);
+    expect(code).toBe(0);
+  });
+
+  it("prints message and skips prompt when no ports active", async () => {
+    getListeningPorts.mockReturnValue([]);
+
+    const code = await interactiveKill();
+
+    expect(checkbox).not.toHaveBeenCalled();
+    expect(code).toBe(0);
+    expect(output.some((line) => line.includes("No active dev ports"))).toBe(true);
+  });
+
+  it("returns 0 when user selects nothing", async () => {
+    getListeningPorts.mockReturnValue([
+      { port: 3000, pid: 111, processName: "node", framework: "Next.js", projectName: "frontend", command: "node server.js" },
+    ]);
+    isDevProcess.mockReturnValue(true);
+    checkbox.mockResolvedValue([]);
+
+    const code = await interactiveKill();
+
+    expect(killProcess).not.toHaveBeenCalled();
+    expect(code).toBe(0);
+  });
+
+  it("returns 0 when user cancels with Ctrl+C", async () => {
+    getListeningPorts.mockReturnValue([
+      { port: 3000, pid: 111, processName: "node", framework: "Next.js", projectName: "frontend", command: "node server.js" },
+    ]);
+    isDevProcess.mockReturnValue(true);
+    checkbox.mockRejectedValue(new Error("User force closed the prompt"));
+
+    const code = await interactiveKill();
+
+    expect(killProcess).not.toHaveBeenCalled();
+    expect(code).toBe(0);
   });
 });
