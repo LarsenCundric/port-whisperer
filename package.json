@@ -31,10 +31,14 @@
     "whoisonport": "./src/index.js"
   },
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "test": "vitest run"
   },
   "dependencies": {
     "chalk": "^5.4.1",
     "cli-table3": "^0.6.5"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.2"
   }
 }
