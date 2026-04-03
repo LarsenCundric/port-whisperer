@@ -1,62 +1,62 @@
-import chalk from 'chalk';
-import Table from 'cli-table3';
+import chalk from "chalk";
+import Table from "cli-table3";
 
 const ICONS = {
-  healthy: chalk.green('●'),
-  orphaned: chalk.yellow('●'),
-  zombie: chalk.red('●'),
-  unknown: chalk.gray('●'),
-  port: chalk.cyan('⌘'),
-  folder: chalk.blue('📂'),
-  git: chalk.magenta('⎇'),
-  time: chalk.yellow('⏱'),
-  memory: chalk.green('◆'),
-  process: chalk.white('⚙'),
-  kill: chalk.red('✕'),
-  watch: chalk.cyan('👁'),
+  healthy: chalk.green("●"),
+  orphaned: chalk.yellow("●"),
+  zombie: chalk.red("●"),
+  unknown: chalk.gray("●"),
+  port: chalk.cyan("⌘"),
+  folder: chalk.blue("📂"),
+  git: chalk.magenta("⎇"),
+  time: chalk.yellow("⏱"),
+  memory: chalk.green("◆"),
+  process: chalk.white("⚙"),
+  kill: chalk.red("✕"),
+  watch: chalk.cyan("👁"),
 };
 
 const FRAMEWORK_COLORS = {
-  'Next.js': chalk.white.bgBlack,
-  'Vite': chalk.yellow,
-  'React': chalk.cyan,
-  'Vue': chalk.green,
-  'Angular': chalk.red,
-  'Svelte': chalk.rgb(255, 62, 0),
-  'SvelteKit': chalk.rgb(255, 62, 0),
-  'Express': chalk.gray,
-  'Fastify': chalk.white,
-  'NestJS': chalk.red,
-  'Nuxt': chalk.green,
-  'Remix': chalk.blue,
-  'Astro': chalk.magenta,
-  'Django': chalk.green,
-  'Flask': chalk.white,
-  'FastAPI': chalk.cyan,
-  'Rails': chalk.red,
-  'Gatsby': chalk.magenta,
-  'Go': chalk.cyan,
-  'Rust': chalk.rgb(222, 165, 93),
-  'Ruby': chalk.red,
-  'Python': chalk.yellow,
-  'Node.js': chalk.green,
-  'Java': chalk.red,
-  'Hono': chalk.rgb(255, 102, 0),
-  'Koa': chalk.white,
-  'Webpack': chalk.blue,
-  'esbuild': chalk.yellow,
-  'Parcel': chalk.rgb(224, 178, 77),
-  'Docker': chalk.blue,
-  'PostgreSQL': chalk.blue,
-  'Redis': chalk.red,
-  'MySQL': chalk.blue,
-  'MongoDB': chalk.green,
-  'nginx': chalk.green,
-  'LocalStack': chalk.white,
-  'RabbitMQ': chalk.rgb(255, 102, 0),
-  'Kafka': chalk.white,
-  'Elasticsearch': chalk.yellow,
-  'MinIO': chalk.red,
+  "Next.js": chalk.white.bgBlack,
+  Vite: chalk.yellow,
+  React: chalk.cyan,
+  Vue: chalk.green,
+  Angular: chalk.red,
+  Svelte: chalk.rgb(255, 62, 0),
+  SvelteKit: chalk.rgb(255, 62, 0),
+  Express: chalk.gray,
+  Fastify: chalk.white,
+  NestJS: chalk.red,
+  Nuxt: chalk.green,
+  Remix: chalk.blue,
+  Astro: chalk.magenta,
+  Django: chalk.green,
+  Flask: chalk.white,
+  FastAPI: chalk.cyan,
+  Rails: chalk.red,
+  Gatsby: chalk.magenta,
+  Go: chalk.cyan,
+  Rust: chalk.rgb(222, 165, 93),
+  Ruby: chalk.red,
+  Python: chalk.yellow,
+  "Node.js": chalk.green,
+  Java: chalk.red,
+  Hono: chalk.rgb(255, 102, 0),
+  Koa: chalk.white,
+  Webpack: chalk.blue,
+  esbuild: chalk.yellow,
+  Parcel: chalk.rgb(224, 178, 77),
+  Docker: chalk.blue,
+  PostgreSQL: chalk.blue,
+  Redis: chalk.red,
+  MySQL: chalk.blue,
+  MongoDB: chalk.green,
+  nginx: chalk.green,
+  LocalStack: chalk.white,
+  RabbitMQ: chalk.rgb(255, 102, 0),
+  Kafka: chalk.white,
+  Elasticsearch: chalk.yellow,
+  MinIO: chalk.red,
 };
 
 /**
@@ -64,10 +64,19 @@ const FRAMEWORK_COLORS = {
  */
 function renderHeader() {
   console.log();
-  console.log(chalk.cyan.bold(' ┌─────────────────────────────────────┐'));
-  console.log(chalk.cyan.bold(' │') + chalk.white.bold('  🔊 Port Whisperer') + '                 ' + chalk.cyan.bold('│'));
-  console.log(chalk.cyan.bold(' │') + chalk.gray('  listening to your ports...         ') + chalk.cyan.bold('│'));
-  console.log(chalk.cyan.bold(' └─────────────────────────────────────┘'));
+  console.log(chalk.cyan.bold(" ┌─────────────────────────────────────┐"));
+  console.log(
+    chalk.cyan.bold(" │") +
+      chalk.white.bold("  🔊 Port Whisperer") +
+      "                 " +
+      chalk.cyan.bold("│"),
+  );
+  console.log(
+    chalk.cyan.bold(" │") +
+      chalk.gray("  listening to your ports...         ") +
+      chalk.cyan.bold("│"),
+  );
+  console.log(chalk.cyan.bold(" └─────────────────────────────────────┘"));
   console.log();
 }
 
@@ -75,7 +84,7 @@ function renderHeader() {
  * Format framework name with color
  */
 function formatFramework(framework) {
-  if (!framework) return chalk.gray('—');
+  if (!framework) return chalk.gray("—");
   const colorFn = FRAMEWORK_COLORS[framework] || chalk.white;
   return colorFn(framework);
 }
@@ -86,10 +95,10 @@ function formatFramework(framework) {
 function formatStatus(status) {
   const icon = ICONS[status] || ICONS.unknown;
   const labels = {
-    healthy: chalk.green('healthy'),
-    orphaned: chalk.yellow('orphaned'),
-    zombie: chalk.red('zombie'),
-    unknown: chalk.gray('unknown'),
+    healthy: chalk.green("healthy"),
+    orphaned: chalk.yellow("orphaned"),
+    zombie: chalk.red("zombie"),
+    unknown: chalk.gray("unknown"),
   };
   return `${icon} ${labels[status] || labels.unknown}`;
 }
@@ -101,52 +110,78 @@ export function displayPortTable(ports, filtered = false) {
   renderHeader();
 
   if (ports.length === 0) {
-    console.log(chalk.gray('  No active listening ports found.\n'));
-    console.log(chalk.gray('  Start a dev server and run ') + chalk.cyan('ports') + chalk.gray(' again.\n'));
+    console.log(chalk.gray("  No active listening ports found.\n"));
+    console.log(
+      chalk.gray("  Start a dev server and run ") +
+        chalk.cyan("ports") +
+        chalk.gray(" again.\n"),
+    );
     return;
   }
 
   const table = new Table({
     chars: {
-      'top': '─', 'top-mid': '┬', 'top-left': '┌', 'top-right': '┐',
-      'bottom': '─', 'bottom-mid': '┴', 'bottom-left': '└', 'bottom-right': '┘',
-      'left': '│', 'left-mid': '├', 'mid': '─', 'mid-mid': '┼',
-      'right': '│', 'right-mid': '┤', 'middle': '│',
+      top: "─",
+      "top-mid": "┬",
+      "top-left": "┌",
+      "top-right": "┐",
+      bottom: "─",
+      "bottom-mid": "┴",
+      "bottom-left": "└",
+      "bottom-right": "┘",
+      left: "│",
+      "left-mid": "├",
+      mid: "─",
+      "mid-mid": "┼",
+      right: "│",
+      "right-mid": "┤",
+      middle: "│",
     },
     style: {
       head: [],
-      border: ['gray'],
-      'padding-left': 1,
-      'padding-right': 1,
+      border: ["gray"],
+      "padding-left": 1,
+      "padding-right": 1,
     },
     head: [
-      chalk.cyan.bold('PORT'),
-      chalk.cyan.bold('PROCESS'),
-      chalk.cyan.bold('PID'),
-      chalk.cyan.bold('PROJECT'),
-      chalk.cyan.bold('FRAMEWORK'),
-      chalk.cyan.bold('UPTIME'),
-      chalk.cyan.bold('STATUS'),
+      chalk.cyan.bold("PORT"),
+      chalk.cyan.bold("PROCESS"),
+      chalk.cyan.bold("PID"),
+      chalk.cyan.bold("PROJECT"),
+      chalk.cyan.bold("FRAMEWORK"),
+      chalk.cyan.bold("UPTIME"),
+      chalk.cyan.bold("STATUS"),
     ],
   });
 
   for (const p of ports) {
     table.push([
       chalk.white.bold(`:${p.port}`),
-      chalk.white(p.processName || p.rawName || '—'),
+      chalk.white(p.processName || p.rawName || "—"),
       chalk.gray(String(p.pid)),
-      p.projectName ? chalk.blue(truncate(p.projectName, 20)) : chalk.gray('—'),
+      p.projectName ? chalk.blue(truncate(p.projectName, 20)) : chalk.gray("—"),
       formatFramework(p.framework),
-      p.uptime ? chalk.yellow(p.uptime) : chalk.gray('—'),
+      p.uptime ? chalk.yellow(p.uptime) : chalk.gray("—"),
       formatStatus(p.status),
     ]);
   }
 
   console.log(table.toString());
   console.log();
-  const allHint = filtered ? chalk.gray('  ·  ') + chalk.cyan('--all') + chalk.gray(' to show everything') : '';
-  console.log(chalk.gray(`  ${ports.length} port${ports.length === 1 ? '' : 's'} active  ·  `) +
-    chalk.gray('Run ') + chalk.cyan('ports <number>') + chalk.gray(' for details') + allHint);
+  const allHint = filtered
+    ? chalk.gray("  ·  ") +
+      chalk.cyan("--all") +
+      chalk.gray(" to show everything")
+    : "";
+  console.log(
+    chalk.gray(
+      `  ${ports.length} port${ports.length === 1 ? "" : "s"} active  ·  `,
+    ) +
+      chalk.gray("Run ") +
+      chalk.cyan("ports <number>") +
+      chalk.gray(" for details") +
+      allHint,
+  );
   console.log();
 }
 
@@ -157,7 +192,7 @@ export function displayPortDetail(info) {
   renderHeader();
 
   if (!info) {
-    console.log(chalk.red('  No process found on that port.\n'));
+    console.log(chalk.red("  No process found on that port.\n"));
     return;
   }
 
@@ -166,41 +201,54 @@ export function displayPortDetail(info) {
   };
 
   console.log(chalk.white.bold(`  Port :${info.port}`));
-  console.log(chalk.gray('  ─'.repeat(22)));
+  console.log(chalk.gray("  ─".repeat(22)));
   console.log();
 
-  box('Process', chalk.white.bold(info.processName || info.rawName || '—'));
-  box('PID', chalk.gray(String(info.pid)));
-  box('Status', formatStatus(info.status));
-  box('Framework', formatFramework(info.framework));
-  box('Memory', info.memory ? chalk.green(info.memory) : chalk.gray('—'));
-  box('Uptime', info.uptime ? chalk.yellow(info.uptime) : chalk.gray('—'));
+  box("Process", chalk.white.bold(info.processName || info.rawName || "—"));
+  box("PID", chalk.gray(String(info.pid)));
+  box("Status", formatStatus(info.status));
+  box("Framework", formatFramework(info.framework));
+  box("Memory", info.memory ? chalk.green(info.memory) : chalk.gray("—"));
+  box("Uptime", info.uptime ? chalk.yellow(info.uptime) : chalk.gray("—"));
   if (info.startTime) {
-    box('Started', chalk.gray(info.startTime.toLocaleString()));
+    box("Started", chalk.gray(info.startTime.toLocaleString()));
   }
 
   console.log();
-  console.log(chalk.cyan.bold('  Location'));
-  console.log(chalk.gray('  ─'.repeat(22)));
-  box('Directory', info.cwd ? chalk.blue(info.cwd) : chalk.gray('—'));
-  box('Project', info.projectName ? chalk.white(info.projectName) : chalk.gray('—'));
-  box('Git Branch', info.gitBranch ? chalk.magenta(info.gitBranch) : chalk.gray('—'));
+  console.log(chalk.cyan.bold("  Location"));
+  console.log(chalk.gray("  ─".repeat(22)));
+  box("Directory", info.cwd ? chalk.blue(info.cwd) : chalk.gray("—"));
+  box(
+    "Project",
+    info.projectName ? chalk.white(info.projectName) : chalk.gray("—"),
+  );
+  box(
+    "Git Branch",
+    info.gitBranch ? chalk.magenta(info.gitBranch) : chalk.gray("—"),
+  );
 
   if (info.processTree && info.processTree.length > 0) {
     console.log();
-    console.log(chalk.cyan.bold('  Process Tree'));
-    console.log(chalk.gray('  ─'.repeat(22)));
+    console.log(chalk.cyan.bold("  Process Tree"));
+    console.log(chalk.gray("  ─".repeat(22)));
     for (let i = 0; i < info.processTree.length; i++) {
       const node = info.processTree[i];
-      const indent = '  '.repeat(i);
-      const prefix = i === 0 ? '→' : '└─';
+      const indent = "  ".repeat(i);
+      const prefix = i === 0 ? "→" : "└─";
       const pidColor = node.pid === info.pid ? chalk.white.bold : chalk.gray;
-      console.log(`  ${indent}${chalk.gray(prefix)} ${pidColor(node.name)} ${chalk.gray(`(${node.pid})`)}`);
+      console.log(
+        `  ${indent}${chalk.gray(prefix)} ${pidColor(node.name)} ${chalk.gray(`(${node.pid})`)}`,
+      );
     }
   }
 
   console.log();
-  console.log(chalk.gray('  Kill this process: ') + chalk.cyan(`ports clean`) + chalk.gray(' or ') + chalk.red(`kill ${info.pid}`));
+  console.log(
+    chalk.gray("  Kill this process: ") +
+      chalk.cyan(`ports clean`) +
+      chalk.gray(" or ") +
+      chalk.red(`kill ${info.pid}`),
+  );
   console.log();
 }
 
@@ -211,17 +259,29 @@ export function displayCleanResults(orphaned, killed, failed) {
   renderHeader();
 
   if (orphaned.length === 0) {
-    console.log(chalk.green('  ✓ No orphaned or zombie processes found. All clean!\n'));
+    console.log(
+      chalk.green("  ✓ No orphaned or zombie processes found. All clean!\n"),
+    );
     return;
   }
 
-  console.log(chalk.yellow.bold(`  Found ${orphaned.length} orphaned/zombie process${orphaned.length === 1 ? '' : 'es'}:\n`));
+  console.log(
+    chalk.yellow.bold(
+      `  Found ${orphaned.length} orphaned/zombie process${orphaned.length === 1 ? "" : "es"}:\n`,
+    ),
+  );
 
   for (const p of orphaned) {
     const wasKilled = killed.includes(p.pid);
     const didFail = failed.includes(p.pid);
-    const icon = wasKilled ? chalk.green('✓') : didFail ? chalk.red('✕') : chalk.yellow('?');
-    console.log(`  ${icon} :${chalk.white.bold(p.port)} ${chalk.gray('—')} ${p.processName} ${chalk.gray(`(PID ${p.pid})`)}`);
+    const icon = wasKilled
+      ? chalk.green("✓")
+      : didFail
+        ? chalk.red("✕")
+        : chalk.yellow("?");
+    console.log(
+      `  ${icon} :${chalk.white.bold(p.port)} ${chalk.gray("—")} ${p.processName} ${chalk.gray(`(PID ${p.pid})`)}`,
+    );
     if (didFail) {
       console.log(chalk.red(`    Failed to kill. Try: sudo kill -9 ${p.pid}`));
     }
@@ -229,10 +289,18 @@ export function displayCleanResults(orphaned, killed, failed) {
 
   console.log();
   if (killed.length > 0) {
-    console.log(chalk.green(`  Cleaned ${killed.length} process${killed.length === 1 ? '' : 'es'}.`));
+    console.log(
+      chalk.green(
+        `  Cleaned ${killed.length} process${killed.length === 1 ? "" : "es"}.`,
+      ),
+    );
   }
   if (failed.length > 0) {
-    console.log(chalk.red(`  Failed to clean ${failed.length} process${failed.length === 1 ? '' : 'es'}.`));
+    console.log(
+      chalk.red(
+        `  Failed to clean ${failed.length} process${failed.length === 1 ? "" : "es"}.`,
+      ),
+    );
   }
   console.log();
 }
@@ -243,15 +311,15 @@ export function displayCleanResults(orphaned, killed, failed) {
 export function displayWatchEvent(type, info) {
   const timestamp = chalk.gray(new Date().toLocaleTimeString());
 
-  if (type === 'new') {
-    const fw = info.framework ? ` ${formatFramework(info.framework)}` : '';
-    const proj = info.projectName ? chalk.blue(` [${info.projectName}]`) : '';
+  if (type === "new") {
+    const fw = info.framework ? ` ${formatFramework(info.framework)}` : "";
+    const proj = info.projectName ? chalk.blue(` [${info.projectName}]`) : "";
     console.log(
-      `  ${timestamp} ${chalk.green('▲ NEW')}    :${chalk.white.bold(info.port)} ← ${chalk.white(info.processName)}${proj}${fw}`
+      `  ${timestamp} ${chalk.green("▲ NEW")}    :${chalk.white.bold(info.port)} ← ${chalk.white(info.processName)}${proj}${fw}`,
     );
-  } else if (type === 'removed') {
+  } else if (type === "removed") {
     console.log(
-      `  ${timestamp} ${chalk.red('▼ CLOSED')} :${chalk.white.bold(info.port)}`
+      `  ${timestamp} ${chalk.red("▼ CLOSED")} :${chalk.white.bold(info.port)}`,
     );
   }
 }
@@ -261,11 +329,11 @@ export function displayWatchEvent(type, info) {
  */
 export function displayWatchHeader() {
   renderHeader();
-  console.log(chalk.cyan.bold('  Watching for port changes...'));
-  console.log(chalk.gray('  Press Ctrl+C to stop\n'));
+  console.log(chalk.cyan.bold("  Watching for port changes..."));
+  console.log(chalk.gray("  Press Ctrl+C to stop\n"));
 }
 
 function truncate(str, max) {
-  if (!str) return '';
-  return str.length > max ? str.slice(0, max - 1) + '…' : str;
+  if (!str) return "";
+  return str.length > max ? str.slice(0, max - 1) + "…" : str;
 }
