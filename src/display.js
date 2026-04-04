@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import Table from "cli-table3";
+import stringWidth from "string-width";
 
 const ICONS = {
   healthy: chalk.green("●"),
@@ -62,21 +63,30 @@ const FRAMEWORK_COLORS = {
 /**
  * Render the header banner
  */
+const BOX_INNER_WIDTH = 37;
+
+function padToWidth(text, targetWidth) {
+  const actual = stringWidth(text);
+  return text + " ".repeat(Math.max(0, targetWidth - actual));
+}
+
 function renderHeader() {
+  const line1 = "  🔊 Port Whisperer";
+  const line2 = "  listening to your ports...";
+  const border = "─".repeat(BOX_INNER_WIDTH);
   console.log();
-  console.log(chalk.cyan.bold(" ┌─────────────────────────────────────┐"));
+  console.log(chalk.cyan.bold(` ┌${border}┐`));
   console.log(
     chalk.cyan.bold(" │") +
-      chalk.white.bold("  🔊 Port Whisperer") +
-      "                  " +
+      chalk.white.bold(padToWidth(line1, BOX_INNER_WIDTH)) +
       chalk.cyan.bold("│"),
   );
   console.log(
     chalk.cyan.bold(" │") +
-      chalk.gray("  listening to your ports...         ") +
+      chalk.gray(padToWidth(line2, BOX_INNER_WIDTH)) +
       chalk.cyan.bold("│"),
   );
-  console.log(chalk.cyan.bold(" └─────────────────────────────────────┘"));
+  console.log(chalk.cyan.bold(` └${border}┘`));
   console.log();
 }
 
