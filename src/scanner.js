@@ -642,6 +642,18 @@ export function findOrphanedProcesses() {
   return ports.filter((p) => p.status === "orphaned" || p.status === "zombie");
 }
 
+/**
+ * Returns true if a process with this PID exists (signal 0).
+ */
+export function pidExists(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function killProcess(pid, signal = "SIGTERM") {
   try {
     process.kill(pid, signal);
@@ -649,6 +661,23 @@ export function killProcess(pid, signal = "SIGTERM") {
   } catch {
     return false;
   }
+}
+
+/**
+ * Resolve `ports kill` target: prefer listener on port when 1–65535, else PID.
+ * Returns { pid, via: 'port' | 'pid' } or null if nothing matches.
+ */
+export function resolveKillTarget(n) {
+  if (!Number.isInteger(n) || n < 1) return null;
+
+  if (n <= 65535) {
+    const info = getPortDetails(n);
+    if (info) return { pid: info.pid, via: "port", port: n };
+  }
+
+  if (pidExists(n)) return { pid: n, via: "pid" };
+
+  return null;
 }
 
 export function watchPorts(callback, intervalMs = 2000) {
