@@ -77,6 +77,28 @@ whoisonport 3000
 
 Detailed view: full process tree, repository path, current git branch, memory usage, and an interactive prompt to kill the process.
 
+### Kill a process on a port
+
+```bash
+ports kill
+```
+
+Interactive mode — shows a multi-select list of active dev ports. Pick which to kill with arrow keys and space, confirm with enter:
+
+```
+? Select ports to kill:
+◯ :3000 — node [Next.js — frontend]
+◯ :5173 — node [Vite — dashboard]
+◯ :5432 — docker [PostgreSQL — backend-postgres-1]
+```
+
+Or kill directly by port number (no prompt):
+
+```bash
+ports kill 3000
+ports kill 3000 5173 8080
+```
+
 ### Show all dev processes
 
 ```bash

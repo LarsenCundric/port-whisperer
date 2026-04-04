@@ -19,11 +19,106 @@ import {
 } from "./display.js";
 import chalk from "chalk";
 import { createInterface } from "readline";
+import { fileURLToPath } from "url";
+import { checkbox } from "@inquirer/prompts";
 
 const args = process.argv.slice(2);
 const showAll = args.includes("--all") || args.includes("-a");
 const filteredArgs = args.filter((a) => a !== "--all" && a !== "-a");
 const command = filteredArgs[0];
+
+/**
+ * Kill processes on specified ports without interactive prompts.
+ * Returns 0 if all succeeded, 1 if any failed.
+ */
+export async function handleKill(portArgs) {
+  if (portArgs.length === 0) {
+    console.log(chalk.red("\n  Usage: ports kill <port> [port...]\n"));
+    return 1;
+  }
+
+  let anyFailed = false;
+  console.log();
+
+  for (const arg of portArgs) {
+    const portNum = parseInt(arg, 10);
+    if (isNaN(portNum)) {
+      console.log(chalk.red(`  ✕ "${arg}" is not a valid port number`));
+      anyFailed = true;
+      continue;
+    }
+
+    const info = getPortDetails(portNum);
+    if (!info) {
+      console.log(chalk.red(`  ✕ No process found on :${portNum}`));
+      anyFailed = true;
+      continue;
+    }
+
+    const label = [info.framework, info.projectName].filter(Boolean).join(" — ");
+    const detail = label ? ` [${label}]` : "";
+    console.log(
+      chalk.white(
+        `  Killing ${info.processName} (PID ${info.pid}) on :${portNum}${detail}`,
+      ),
+    );
+
+    const success = killProcess(info.pid);
+    if (success) {
+      console.log(chalk.green(`  ✓ Killed PID ${info.pid}`));
+    } else {
+      console.log(
+        chalk.red(
+          `  ✕ Failed to kill PID ${info.pid}. Try: sudo kill -9 ${info.pid}`,
+        ),
+      );
+      anyFailed = true;
+    }
+  }
+
+  console.log();
+  return anyFailed ? 1 : 0;
+}
+
+/**
+ * Interactive port selection and kill.
+ * Shows a checkbox prompt of active dev ports. Returns exit code.
+ */
+export async function interactiveKill() {
+  const ports = getListeningPorts().filter((p) =>
+    isDevProcess(p.processName, p.command),
+  );
+
+  if (ports.length === 0) {
+    console.log(chalk.gray("\n  No active dev ports found.\n"));
+    return 0;
+  }
+
+  const choices = ports.map((p) => {
+    const label = [p.framework, p.projectName].filter(Boolean).join(" — ");
+    const detail = label ? ` [${label}]` : "";
+    return {
+      name: `:${p.port} — ${p.processName}${detail}`,
+      value: p.port,
+    };
+  });
+
+  let selected;
+  try {
+    selected = await checkbox({
+      message: "Select ports to kill:",
+      choices,
+    });
+  } catch {
+    return 0;
+  }
+
+  if (selected.length === 0) {
+    return 0;
+  }
+
+  return handleKill(selected.map(String));
+}
 
 async function main() {
   // No args: show dev ports by default, --all for everything
@@ -189,6 +284,16 @@ async function main() {
       break;
     }
 
+    case "kill": {
+      const killArgs = filteredArgs.slice(1);
+      const exitCode =
+        killArgs.length === 0
+          ? await interactiveKill()
+          : await handleKill(killArgs);
+      process.exitCode = exitCode;
+      break;
+    }
+
     case "help":
     case "--help":
     case "-h": {
@@ -212,6 +317,9 @@ async function main() {
         `    ${chalk.cyan("ports <number>")}     Detailed info about a specific port`,
       );
       console.log(
+        `    ${chalk.cyan("ports kill [port]")}  Kill ports (interactive if no port given)`,
+      );
+      console.log(
         `    ${chalk.cyan("ports clean")}        Kill orphaned/zombie dev servers`,
       );
       console.log(
@@ -233,7 +341,11 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(chalk.red(`\n  Error: ${err.message}\n`));
-  process.exit(1);
-});
+// Only run main when executed directly (not imported in tests)
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMainModule) {
+  main().catch((err) => {
+    console.error(chalk.red(`\n  Error: ${err.message}\n`));
+    process.exit(1);
+  });
+}
