@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 import { existsSync, readFileSync, readdirSync, readlinkSync } from "fs";
 import { join, dirname, basename } from "path";
 import { getPlatform } from "./platform/index.js";
@@ -20,8 +20,10 @@ function batchDockerInfo() {
       const [portsStr, name, image] = line.split("\t");
       if (!portsStr || !name) continue;
 
+      // Match both IPv4 (1.2.3.4:5432->) and IPv6 ([::]:5432-> or ::: form) bindings.
+      // Docker typically emits IPv6 as `[::]:5432->5432/tcp`, but bare `:::5432->` also appears.
       const portMatches = portsStr.matchAll(
-        /(?:\d+\.\d+\.\d+\.\d+|::):(\d+)->/g,
+        /(?:\d+\.\d+\.\d+\.\d+|\[::\]|::):(\d+)->/g,
       );
       const seen = new Set();
       for (const m of portMatches) {
@@ -107,9 +109,16 @@ export async function getListeningPorts(detailed = false) {
 
       if (detailed) {
         try {
-          info.gitBranch = execSync(
-            `git -C "${info.cwd}" rev-parse --abbrev-ref HEAD 2>/dev/null`,
-            { encoding: "utf8", timeout: 3000 },
+          // execFileSync avoids the shell, so a crafted cwd (e.g. a directory
+          // named `foo"; rm -rf ~ #`) cannot break out of the argument list.
+          info.gitBranch = execFileSync(
+            "git",
+            ["-C", info.cwd, "rev-parse", "--abbrev-ref", "HEAD"],
+            {
+              encoding: "utf8",
+              timeout: 3000,
+              stdio: ["ignore", "pipe", "ignore"],
+            },
           ).trim();
         } catch {}
       }
