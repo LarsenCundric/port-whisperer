@@ -176,6 +176,18 @@ ports watch
 
 Real-time monitoring that notifies you whenever a port starts or stops listening.
 
+### Keep the view open and auto-refresh
+
+```bash
+ports --watch                # re-render the port list every 2s
+ports --all --watch          # same, but for all listening ports
+ports ps --watch             # auto-refresh the process list
+ports 3000 --watch           # auto-refresh the detail view for a port
+ports --watch --interval 5   # custom refresh interval (seconds)
+```
+
+Like `top`: clears the screen and redraws the table on every tick. Press `Ctrl+C` to stop.
+
 ## How it works
 
 Three shell calls, runs in ~0.2s:
