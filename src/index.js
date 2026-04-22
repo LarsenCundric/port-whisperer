@@ -130,9 +130,13 @@ async function runWatched(renderOnce) {
     }
     // Atomic flip: first frame wipes scrollback for a clean canvas,
     // subsequent frames just home the cursor and let "clear to end of screen"
-    // erase anything left over from a shorter frame.
+    // erase anything left over from a shorter frame. Also erase to end of
+    // line at every newline so blank lines and shorter lines fully replace
+    // the previous frame - otherwise \n only moves the cursor and leaves
+    // stale trailing characters from the old frame visible.
     const prefix = firstFrame ? "\x1b[H\x1b[2J\x1b[3J" : "\x1b[H";
-    frame.write(prefix + frame.buffer + "\x1b[0J");
+    const cleaned = frame.buffer.replace(/\n/g, "\x1b[K\n");
+    frame.write(prefix + cleaned + "\x1b[0J");
     firstFrame = false;
     await new Promise((r) => setTimeout(r, watchIntervalSec * 1000));
   }
