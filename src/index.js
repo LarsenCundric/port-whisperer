@@ -38,23 +38,136 @@ function spawnTail(filePath, numLines, follow = true) {
 
 const args = process.argv.slice(2);
 const showAll = args.includes("--all") || args.includes("-a");
-const filteredArgs = args.filter((a) => a !== "--all" && a !== "-a");
+const watchMode = args.includes("--watch") || args.includes("-w");
+// Parse --interval=N or --interval N (seconds). Default 2s.
+let watchIntervalSec = 2;
+const intervalEq = args.find((a) => a.startsWith("--interval="));
+if (intervalEq) {
+  const v = parseFloat(intervalEq.split("=")[1]);
+  if (!isNaN(v) && v > 0) watchIntervalSec = v;
+} else {
+  const idx = args.indexOf("--interval");
+  if (idx !== -1 && args[idx + 1]) {
+    const v = parseFloat(args[idx + 1]);
+    if (!isNaN(v) && v > 0) watchIntervalSec = v;
+  }
+}
+const filteredArgs = args.filter(
+  (a, i, arr) =>
+    a !== "--all" &&
+    a !== "-a" &&
+    a !== "--watch" &&
+    a !== "-w" &&
+    a !== "--interval" &&
+    !a.startsWith("--interval=") &&
+    !(i > 0 && (arr[i - 1] === "--interval")),
+);
 const command = filteredArgs[0];
+
+function printWatchFooter() {
+  const ts = new Date().toLocaleTimeString();
+  console.log(
+    chalk.gray(
+      `  Watching · refresh every ${watchIntervalSec}s · last update ${ts} · Ctrl+C to stop`,
+    ),
+  );
+  console.log();
+}
+
+// Capture everything written to stdout while fn runs, so we can flip the
+// screen to the new frame atomically (no blank flash between clear and redraw).
+async function captureStdout(fn) {
+  const origWrite = process.stdout.write.bind(process.stdout);
+  let buffer = "";
+  process.stdout.write = function (chunk, encoding, cb) {
+    buffer +=
+      typeof chunk === "string"
+        ? chunk
+        : Buffer.isBuffer(chunk)
+          ? chunk.toString(typeof encoding === "string" ? encoding : "utf8")
+          : String(chunk);
+    const done = typeof encoding === "function" ? encoding : cb;
+    if (typeof done === "function") done();
+    return true;
+  };
+  try {
+    await fn();
+  } finally {
+    process.stdout.write = origWrite;
+  }
+  return { buffer, write: origWrite };
+}
+
+async function runWatched(renderOnce) {
+  // Hide cursor during watch for a cleaner look.
+  process.stdout.write("\x1b[?25l");
+  const restoreCursor = () => process.stdout.write("\x1b[?25h");
+
+  let stopped = false;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    restoreCursor();
+    console.log(chalk.gray("\n  Stopped watching.\n"));
+    process.exit(0);
+  };
+  process.on("SIGINT", stop);
+  process.on("SIGTERM", stop);
+
+  let firstFrame = true;
+  while (!stopped) {
+    let frame;
+    try {
+      frame = await captureStdout(async () => {
+        await renderOnce();
+        printWatchFooter();
+      });
+    } catch (err) {
+      frame = {
+        buffer: chalk.red(`\n  Error: ${err.message}\n\n`),
+        write: process.stdout.write.bind(process.stdout),
+      };
+    }
+    // Atomic flip: first frame wipes scrollback for a clean canvas,
+    // subsequent frames just home the cursor and let "clear to end of screen"
+    // erase anything left over from a shorter frame.
+    const prefix = firstFrame ? "\x1b[H\x1b[2J\x1b[3J" : "\x1b[H";
+    frame.write(prefix + frame.buffer + "\x1b[0J");
+    firstFrame = false;
+    await new Promise((r) => setTimeout(r, watchIntervalSec * 1000));
+  }
+}
 
 async function main() {
   // No args: show dev ports by default, --all for everything
   if (!command) {
-    let ports = await getListeningPorts();
-    if (!showAll) {
-      ports = ports.filter((p) => isDevProcess(p.processName, p.command));
+    const renderPortList = async () => {
+      let ports = await getListeningPorts();
+      if (!showAll) {
+        ports = ports.filter((p) => isDevProcess(p.processName, p.command));
+      }
+      displayPortTable(ports, !showAll);
+    };
+
+    if (watchMode) {
+      await runWatched(renderPortList);
+      return;
     }
-    displayPortTable(ports, !showAll);
+    await renderPortList();
     return;
   }
 
   // Specific port number
   const portNum = parseInt(command, 10);
   if (!isNaN(portNum)) {
+    if (watchMode) {
+      await runWatched(async () => {
+        const info = await getPortDetails(portNum);
+        displayPortDetail(info);
+      });
+      return;
+    }
+
     const info = await getPortDetails(portNum);
     displayPortDetail(info);
 
@@ -87,59 +200,67 @@ async function main() {
   // Named commands
   switch (command) {
     case "ps": {
-      let processes = await getAllProcesses();
-      if (!showAll) {
-        processes = processes.filter((p) =>
-          isDevProcess(p.processName, p.command),
-        );
-        // Collapse Docker internal processes into one summary row
-        const dockerProcs = processes.filter(
-          (p) =>
-            p.processName.startsWith("com.docke") ||
-            p.processName.startsWith("Docker") ||
-            p.processName === "docker" ||
-            p.processName === "docker-sandbox",
-        );
-        const nonDocker = processes.filter(
-          (p) =>
-            !p.processName.startsWith("com.docke") &&
-            !p.processName.startsWith("Docker") &&
-            p.processName !== "docker" &&
-            p.processName !== "docker-sandbox",
-        );
-        if (dockerProcs.length > 0) {
-          const totalCpu = dockerProcs.reduce((s, p) => s + p.cpu, 0);
-          const totalRssKB = dockerProcs.reduce((s, p) => {
-            const m = (p.memory || "").match(/([\d.]+)\s*(GB|MB|KB)/);
-            if (!m) return s;
-            const val = parseFloat(m[1]);
-            if (m[2] === "GB") return s + val * 1048576;
-            if (m[2] === "MB") return s + val * 1024;
-            return s + val;
-          }, 0);
-          const memStr =
-            totalRssKB > 1048576
-              ? `${(totalRssKB / 1048576).toFixed(1)} GB`
-              : totalRssKB > 1024
-                ? `${(totalRssKB / 1024).toFixed(1)} MB`
-                : `${Math.round(totalRssKB)} KB`;
-          nonDocker.push({
-            pid: dockerProcs[0].pid,
-            processName: "Docker",
-            command: "",
-            description: `${dockerProcs.length} processes`,
-            cpu: totalCpu,
-            memory: memStr,
-            cwd: null,
-            projectName: null,
-            framework: "Docker",
-            uptime: dockerProcs[0].uptime,
-          });
+      const renderProcessList = async () => {
+        let processes = await getAllProcesses();
+        if (!showAll) {
+          processes = processes.filter((p) =>
+            isDevProcess(p.processName, p.command),
+          );
+          // Collapse Docker internal processes into one summary row
+          const dockerProcs = processes.filter(
+            (p) =>
+              p.processName.startsWith("com.docke") ||
+              p.processName.startsWith("Docker") ||
+              p.processName === "docker" ||
+              p.processName === "docker-sandbox",
+          );
+          const nonDocker = processes.filter(
+            (p) =>
+              !p.processName.startsWith("com.docke") &&
+              !p.processName.startsWith("Docker") &&
+              p.processName !== "docker" &&
+              p.processName !== "docker-sandbox",
+          );
+          if (dockerProcs.length > 0) {
+            const totalCpu = dockerProcs.reduce((s, p) => s + p.cpu, 0);
+            const totalRssKB = dockerProcs.reduce((s, p) => {
+              const m = (p.memory || "").match(/([\d.]+)\s*(GB|MB|KB)/);
+              if (!m) return s;
+              const val = parseFloat(m[1]);
+              if (m[2] === "GB") return s + val * 1048576;
+              if (m[2] === "MB") return s + val * 1024;
+              return s + val;
+            }, 0);
+            const memStr =
+              totalRssKB > 1048576
+                ? `${(totalRssKB / 1048576).toFixed(1)} GB`
+                : totalRssKB > 1024
+                  ? `${(totalRssKB / 1024).toFixed(1)} MB`
+                  : `${Math.round(totalRssKB)} KB`;
+            nonDocker.push({
+              pid: dockerProcs[0].pid,
+              processName: "Docker",
+              command: "",
+              description: `${dockerProcs.length} processes`,
+              cpu: totalCpu,
+              memory: memStr,
+              cwd: null,
+              projectName: null,
+              framework: "Docker",
+              uptime: dockerProcs[0].uptime,
+            });
+          }
+          processes = nonDocker;
         }
-        processes = nonDocker;
+        processes.sort((a, b) => b.cpu - a.cpu);
+        displayProcessTable(processes, !showAll);
+      };
+
+      if (watchMode) {
+        await runWatched(renderProcessList);
+        return;
       }
-      processes.sort((a, b) => b.cpu - a.cpu);
-      displayProcessTable(processes, !showAll);
+      await renderProcessList();
       break;
     }
 
@@ -538,7 +659,21 @@ async function main() {
         `    ${chalk.cyan("ports watch")}        Monitor port changes in real-time`,
       );
       console.log(
+        `    ${chalk.cyan("ports --watch")}      Auto-refresh the port list (2s by default)`,
+      );
+      console.log(
+        `    ${chalk.cyan("ports ps --watch")}   Auto-refresh the process list`,
+      );
+      console.log(
         `    ${chalk.cyan("whoisonport <num>")} Alias for ports <number>`,
+      );
+      console.log();
+      console.log(chalk.white("  Flags:"));
+      console.log(
+        `    ${chalk.cyan("--watch, -w")}         Re-render every ${chalk.dim("--interval")} seconds until Ctrl+C`,
+      );
+      console.log(
+        `    ${chalk.cyan("--interval <sec>")}    Refresh interval for ${chalk.dim("--watch")} (default: 2)`,
       );
       console.log();
       break;
