@@ -193,15 +193,117 @@ async function main() {
     case "kill": {
       const rawKillArgs = filteredArgs
         .slice(1)
-        .filter((a) => a !== "--force" && a !== "-f");
+        .filter(
+          (a) =>
+            a !== "--force" &&
+            a !== "-f" &&
+            a !== "-y" &&
+            a !== "--yes",
+        );
       const force =
         filteredArgs.includes("--force") || filteredArgs.includes("-f");
+      const skipConfirm =
+        filteredArgs.includes("-y") || filteredArgs.includes("--yes");
       const signal = force ? "SIGKILL" : "SIGTERM";
+
+      // `ports kill all` — kill every listening dev port (or every port with --all)
+      if (
+        rawKillArgs.length === 1 &&
+        rawKillArgs[0].toLowerCase() === "all"
+      ) {
+        let ports = await getListeningPorts();
+        if (!showAll) {
+          ports = ports.filter((p) => isDevProcess(p.processName, p.command));
+        }
+
+        if (ports.length === 0) {
+          console.log();
+          console.log(
+            chalk.gray(
+              `  No ${showAll ? "listening" : "dev"} ports found. Nothing to kill.`,
+            ),
+          );
+          console.log();
+          return;
+        }
+
+        // Dedupe by PID — one process may bind multiple ports
+        const uniquePids = [
+          ...new Map(ports.map((p) => [p.pid, p])).values(),
+        ];
+
+        console.log();
+        console.log(
+          chalk.yellow.bold(
+            `  Found ${ports.length} ${showAll ? "listening" : "dev"} port${ports.length === 1 ? "" : "s"} across ${uniquePids.length} process${uniquePids.length === 1 ? "" : "es"}:`,
+          ),
+        );
+        for (const p of ports) {
+          console.log(
+            `  ${chalk.gray("•")} :${chalk.white.bold(p.port)} — ${p.processName} ${chalk.gray(`(PID ${p.pid})`)}`,
+          );
+        }
+        console.log();
+
+        const doKill = () => {
+          let killed = 0;
+          const failed = [];
+          for (const p of uniquePids) {
+            if (killProcess(p.pid, signal)) {
+              killed++;
+            } else {
+              failed.push(p.pid);
+            }
+          }
+          console.log();
+          console.log(
+            chalk.green(
+              `  ✓ Sent ${signal} to ${killed} process${killed === 1 ? "" : "es"}`,
+            ),
+          );
+          if (failed.length > 0) {
+            console.log(
+              chalk.red(
+                `  ✕ Failed for ${failed.length} PID(s): ${failed.join(", ")}`,
+              ),
+            );
+            console.log(
+              chalk.gray(
+                `  Try: sudo kill${force ? " -9" : ""} ${failed.join(" ")}`,
+              ),
+            );
+          }
+          console.log();
+          process.exitCode = failed.length > 0 ? 1 : 0;
+        };
+
+        if (skipConfirm) {
+          doKill();
+          return;
+        }
+
+        const rl = createInterface({
+          input: process.stdin,
+          output: process.stdout,
+        });
+        rl.question(
+          chalk.yellow(`  Kill all ${uniquePids.length}? [y/N] `),
+          (answer) => {
+            if (answer.toLowerCase() === "y") {
+              doKill();
+            } else {
+              console.log(chalk.gray("\n  Aborted.\n"));
+            }
+            rl.close();
+          },
+        );
+        return;
+      }
 
       if (rawKillArgs.length === 0) {
         console.log(
           chalk.red(
-            `\n  Usage: ports kill [-f|--force] <port|pid|range> [port|pid|range...]\n`,
+            `\n  Usage: ports kill [-f|--force] [-y|--yes] <port|pid|range|all> [port|pid|range...]\n`,
           ),
         );
         console.log(
@@ -209,7 +311,12 @@ async function main() {
             "  Kills listener on port (1-65535), or process by PID. Use -f for SIGKILL.",
           ),
         );
-        console.log(chalk.gray("  Ranges: ports kill 3000-3010\n"));
+        console.log(chalk.gray("  Ranges: ports kill 3000-3010"));
+        console.log(
+          chalk.gray(
+            "  All:    ports kill all  (dev ports only, add --all to include everything)\n",
+          ),
+        );
         process.exit(1);
       }
 
@@ -527,6 +634,9 @@ async function main() {
       );
       console.log(
         `    ${chalk.cyan("ports kill 3000-3010")} Kill all listeners in a port range`,
+      );
+      console.log(
+        `    ${chalk.cyan("ports kill all")}     Kill every dev port (add --all for every port, -y to skip confirm)`,
       );
       console.log(
         `    ${chalk.cyan("ports logs <n>")}     Tail log output for a process on a port`,
