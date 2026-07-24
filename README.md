@@ -168,13 +168,16 @@ ports clean
 
 Finds and kills orphaned or zombie dev server processes. Only targets dev runtimes (node, python, etc.) -- won't touch your desktop apps.
 
-### Watch for port changes
+### Watch for port changes (Live auto-refresh)
 
 ```bash
-ports watch
+ports watch       # continuous live auto-refresh table
+ports -w          # live watch mode for dev ports
+ports --all -w    # live watch mode for all ports
+ports ps -w       # live watch mode for processes
 ```
 
-Real-time monitoring that notifies you whenever a port starts or stops listening.
+Real-time interactive dashboard that auto-refreshes every second with live uptimes, timestamps, process statistics, and visual indicators when ports open (`NEW`) or close (`CLOSED`). Press `Ctrl+C` to stop.
 
 ## How it works
 

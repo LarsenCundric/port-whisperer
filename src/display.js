@@ -62,9 +62,12 @@ function padToWidth(text, targetWidth) {
   return text + " ".repeat(Math.max(0, targetWidth - actual));
 }
 
-function renderHeader() {
+function renderHeader(isWatch = false) {
   const line1 = "  🔊 Port Whisperer";
-  const line2 = "  listening to your ports...";
+  const nowStr = new Date().toLocaleTimeString();
+  const line2 = isWatch
+    ? `  LIVE · ${nowStr} · Ctrl+C to exit`
+    : "  listening to your ports...";
   const border = "─".repeat(BOX_INNER_WIDTH);
   console.log();
   console.log(chalk.cyan.bold(` ┌${border}┐`));
@@ -75,7 +78,9 @@ function renderHeader() {
   );
   console.log(
     chalk.cyan.bold(" │") +
-      chalk.gray(padToWidth(line2, BOX_INNER_WIDTH)) +
+      (isWatch
+        ? chalk.green.bold(padToWidth(line2, BOX_INNER_WIDTH))
+        : chalk.gray(padToWidth(line2, BOX_INNER_WIDTH))) +
       chalk.cyan.bold("│"),
   );
   console.log(chalk.cyan.bold(` └${border}┘`));
@@ -108,16 +113,47 @@ function formatStatus(status) {
 /**
  * Display all ports in a beautiful table
  */
-export function displayPortTable(ports, filtered = false) {
-  renderHeader();
+export function displayPortTable(ports, filtered = false, options = {}) {
+  const isWatch = options.isWatch || false;
+  const newPorts = options.newPorts || new Set();
+  const recentEvents = options.recentEvents || [];
+
+  if (isWatch) {
+    console.clear();
+  }
+
+  renderHeader(isWatch);
+
+  if (recentEvents.length > 0) {
+    for (const evt of recentEvents) {
+      if (evt.type === "new") {
+        console.log(
+          `  ${chalk.gray(evt.time)} ${chalk.green.bold("▲ NEW")}    :${chalk.white.bold(evt.port)} ← ${chalk.white(evt.processName || "unknown")}`,
+        );
+      } else if (evt.type === "removed") {
+        console.log(
+          `  ${chalk.gray(evt.time)} ${chalk.red.bold("▼ CLOSED")} :${chalk.white.bold(evt.port)}`,
+        );
+      }
+    }
+    console.log();
+  }
 
   if (ports.length === 0) {
     console.log(chalk.gray("  No active listening ports found.\n"));
-    console.log(
-      chalk.gray("  Start a dev server and run ") +
-        chalk.cyan("ports") +
-        chalk.gray(" again.\n"),
-    );
+    if (isWatch) {
+      console.log(
+        chalk.gray("  Watching for open ports... ") +
+          chalk.cyan("(Press Ctrl+C to stop)") +
+          "\n",
+      );
+    } else {
+      console.log(
+        chalk.gray("  Start a dev server and run ") +
+          chalk.cyan("ports") +
+          chalk.gray(" again.\n"),
+      );
+    }
     return;
   }
 
@@ -157,8 +193,13 @@ export function displayPortTable(ports, filtered = false) {
   });
 
   for (const p of ports) {
+    const isNew = newPorts.has(p.port);
+    const portLabel = isNew
+      ? `${chalk.white.bold(`:${p.port}`)} ${chalk.green.bold("NEW")}`
+      : chalk.white.bold(`:${p.port}`);
+
     table.push([
-      chalk.white.bold(`:${p.port}`),
+      portLabel,
       chalk.white(p.processName || p.rawName || "—"),
       chalk.gray(String(p.pid)),
       p.projectName ? chalk.blue(truncate(p.projectName, 20)) : chalk.gray("—"),
@@ -175,14 +216,17 @@ export function displayPortTable(ports, filtered = false) {
       chalk.cyan("--all") +
       chalk.gray(" to show everything")
     : "";
+  const liveHint = isWatch
+    ? chalk.green("● Live updates active") + chalk.gray("  ·  Ctrl+C to exit")
+    : chalk.gray("Run ") +
+      chalk.cyan("ports <number>") +
+      chalk.gray(" for details") +
+      allHint;
+
   console.log(
     chalk.gray(
       `  ${ports.length} port${ports.length === 1 ? "" : "s"} active  ·  `,
-    ) +
-      chalk.gray("Run ") +
-      chalk.cyan("ports <number>") +
-      chalk.gray(" for details") +
-      allHint,
+    ) + liveHint,
   );
   console.log();
 }
@@ -190,16 +234,29 @@ export function displayPortTable(ports, filtered = false) {
 /**
  * Display all processes in a table (ports ps)
  */
-export function displayProcessTable(processes, filtered = false) {
-  renderHeader();
+export function displayProcessTable(processes, filtered = false, options = {}) {
+  const isWatch = options.isWatch || false;
+  if (isWatch) {
+    console.clear();
+  }
+
+  renderHeader(isWatch);
 
   if (processes.length === 0) {
     console.log(chalk.gray("  No dev processes found.\n"));
-    console.log(
-      chalk.gray("  Run ") +
-        chalk.cyan("ports ps --all") +
-        chalk.gray(" to show all processes.\n"),
-    );
+    if (isWatch) {
+      console.log(
+        chalk.gray("  Watching processes... ") +
+          chalk.cyan("(Press Ctrl+C to stop)") +
+          "\n",
+      );
+    } else {
+      console.log(
+        chalk.gray("  Run ") +
+          chalk.cyan("ports ps --all") +
+          chalk.gray(" to show all processes.\n"),
+      );
+    }
     return;
   }
 
@@ -260,15 +317,13 @@ export function displayProcessTable(processes, filtered = false) {
 
   console.log(table.toString());
   console.log();
-  const allHint = filtered
-    ? chalk.gray("  ·  ") +
-      chalk.cyan("--all") +
-      chalk.gray(" to show everything")
-    : "";
+  const liveHint = isWatch
+    ? chalk.gray("  ·  ") + chalk.green("● Live updates active") + chalk.gray("  ·  Ctrl+C to exit")
+    : allHint;
   console.log(
     chalk.gray(
       `  ${processes.length} process${processes.length === 1 ? "" : "es"}`,
-    ) + allHint,
+    ) + liveHint,
   );
   console.log();
 }
