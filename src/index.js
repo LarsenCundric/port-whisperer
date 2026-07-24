@@ -38,12 +38,149 @@ function spawnTail(filePath, numLines, follow = true) {
 
 const args = process.argv.slice(2);
 const showAll = args.includes("--all") || args.includes("-a");
-const filteredArgs = args.filter((a) => a !== "--all" && a !== "-a");
+const watchMode = args.includes("--watch") || args.includes("-w");
+const filteredArgs = args.filter(
+  (a) => a !== "--all" && a !== "-a" && a !== "--watch" && a !== "-w",
+);
 const command = filteredArgs[0];
 
+async function startLiveWatch({ mode = "ports", showAll = false, intervalMs = 1000 }) {
+  let previousPorts = new Map();
+  const recentEvents = [];
+  let isRunning = false;
+
+  const update = async () => {
+    if (isRunning) return;
+    isRunning = true;
+    try {
+      if (mode === "ports") {
+        let ports = await getListeningPorts();
+        const currentMap = new Map(ports.map((p) => [p.port, p]));
+
+        const newPortSet = new Set();
+        const nowStr = new Date().toLocaleTimeString();
+
+        if (previousPorts.size > 0) {
+          // Find new ports
+          for (const [port, p] of currentMap.entries()) {
+            if (!previousPorts.has(port)) {
+              newPortSet.add(port);
+              recentEvents.unshift({
+                type: "new",
+                port,
+                processName: p.processName,
+                time: nowStr,
+              });
+            }
+          }
+          // Find removed ports
+          for (const [port, p] of previousPorts.entries()) {
+            if (!currentMap.has(port)) {
+              recentEvents.unshift({
+                type: "removed",
+                port,
+                processName: p.processName,
+                time: nowStr,
+              });
+            }
+          }
+        }
+
+        if (recentEvents.length > 3) {
+          recentEvents.length = 3;
+        }
+
+        previousPorts = currentMap;
+
+        if (!showAll) {
+          ports = ports.filter((p) => isDevProcess(p.processName, p.command));
+        }
+
+        displayPortTable(ports, !showAll, {
+          isWatch: true,
+          newPorts: newPortSet,
+          recentEvents,
+        });
+      } else if (mode === "ps") {
+        let processes = await getAllProcesses();
+        if (!showAll) {
+          processes = processes.filter((p) =>
+            isDevProcess(p.processName, p.command),
+          );
+          const dockerProcs = processes.filter(
+            (p) =>
+              p.processName.startsWith("com.docke") ||
+              p.processName.startsWith("Docker") ||
+              p.processName === "docker" ||
+              p.processName === "docker-sandbox",
+          );
+          const nonDocker = processes.filter(
+            (p) =>
+              !p.processName.startsWith("com.docke") &&
+              !p.processName.startsWith("Docker") &&
+              p.processName !== "docker" &&
+              p.processName !== "docker-sandbox",
+          );
+          if (dockerProcs.length > 0) {
+            const totalCpu = dockerProcs.reduce((s, p) => s + p.cpu, 0);
+            const totalRssKB = dockerProcs.reduce((s, p) => {
+              const m = (p.memory || "").match(/([\d.]+)\s*(GB|MB|KB)/);
+              if (!m) return s;
+              const val = parseFloat(m[1]);
+              if (m[2] === "GB") return s + val * 1048576;
+              if (m[2] === "MB") return s + val * 1024;
+              return s + val;
+            }, 0);
+            const memStr =
+              totalRssKB > 1048576
+                ? `${(totalRssKB / 1048576).toFixed(1)} GB`
+                : totalRssKB > 1024
+                  ? `${(totalRssKB / 1024).toFixed(1)} MB`
+                  : `${Math.round(totalRssKB)} KB`;
+            nonDocker.push({
+              pid: dockerProcs[0].pid,
+              processName: "Docker",
+              command: "",
+              description: `${dockerProcs.length} processes`,
+              cpu: totalCpu,
+              memory: memStr,
+              cwd: null,
+              projectName: null,
+              framework: "Docker",
+              uptime: dockerProcs[0].uptime,
+            });
+          }
+          processes = nonDocker;
+        }
+        processes.sort((a, b) => b.cpu - a.cpu);
+        displayProcessTable(processes, !showAll, { isWatch: true });
+      }
+    } catch {
+      // Ignore scan errors in loop
+    } finally {
+      isRunning = false;
+    }
+  };
+
+  await update();
+  const timer = setInterval(update, intervalMs);
+
+  process.on("SIGINT", () => {
+    clearInterval(timer);
+    console.log(chalk.gray("\n\n  Stopped watch mode.\n"));
+    process.exit(0);
+  });
+
+  await new Promise(() => {});
+}
+
 async function main() {
-  // No args: show dev ports by default, --all for everything
+  // No args: show dev ports by default, --all for everything, -w for watch mode
   if (!command) {
+    if (watchMode) {
+      await startLiveWatch({ mode: "ports", showAll });
+      return;
+    }
     let ports = await getListeningPorts();
     if (!showAll) {
       ports = ports.filter((p) => isDevProcess(p.processName, p.command));
@@ -87,6 +224,10 @@ async function main() {
   // Named commands
   switch (command) {
     case "ps": {
+      if (watchMode) {
+        await startLiveWatch({ mode: "ps", showAll });
+        return;
+      }
       let processes = await getAllProcesses();
       if (!showAll) {
         processes = processes.filter((p) =>
@@ -486,17 +627,7 @@ async function main() {
     }
 
     case "watch": {
-      displayWatchHeader();
-      const interval = watchPorts((type, info) => {
-        displayWatchEvent(type, info);
-      }, 2000);
-
-      // Handle graceful exit
-      process.on("SIGINT", () => {
-        clearInterval(interval);
-        console.log(chalk.gray("\n\n  Stopped watching.\n"));
-        process.exit(0);
-      });
+      await startLiveWatch({ mode: "ports", showAll });
       break;
     }
 
@@ -514,10 +645,13 @@ async function main() {
         `    ${chalk.cyan("ports")}              Show dev server ports`,
       );
       console.log(
-        `    ${chalk.cyan("ports --all")}        Show all listening ports`,
+        `    ${chalk.cyan("ports -w, --watch")}   Live auto-refresh ports table (updates in real-time)`,
       );
       console.log(
-        `    ${chalk.cyan("ports ps")}           Show all running dev processes`,
+        `    ${chalk.cyan("ports --all")}        Show all listening ports (can combine with -w)`,
+      );
+      console.log(
+        `    ${chalk.cyan("ports ps")}           Show all running dev processes (can combine with -w)`,
       );
       console.log(
         `    ${chalk.cyan("ports <number>")}     Detailed info about a specific port`,
@@ -535,7 +669,7 @@ async function main() {
         `    ${chalk.cyan("ports clean")}        Kill orphaned/zombie dev servers`,
       );
       console.log(
-        `    ${chalk.cyan("ports watch")}        Monitor port changes in real-time`,
+        `    ${chalk.cyan("ports watch")}        Monitor ports in real-time (continuous auto-refresh)`,
       );
       console.log(
         `    ${chalk.cyan("whoisonport <num>")} Alias for ports <number>`,
